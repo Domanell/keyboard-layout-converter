@@ -229,35 +229,38 @@ function handleInput() {
 	outputText.value = converted;
 }
 
-// Copy to clipboard function
-async function copyToClipboard() {
-	const text = outputText.value;
+// Briefly shows a checkmark and a label on the copy button, then restores the original HTML
+function showCopyFeedback(duration = 2000) {
+	const originalHTML = copyBtn.innerHTML;
+	copyBtn.innerHTML = `
+		<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+			<polyline points="20 6 9 17 4 12"></polyline>
+		</svg>
+		<span>Copied</span>
+	`;
+	copyBtn.classList.add('copied');
+	setTimeout(() => {
+		copyBtn.innerHTML = originalHTML;
+		copyBtn.classList.remove('copied');
+	}, duration);
+}
 
-	if (!text) {
-		return;
-	}
+// Copy to clipboard function
+// silent=true suppresses the alert (used for auto-copy on paste)
+async function copyToClipboard(silent = false) {
+	const text = outputText.value;
+	if (!text) return;
 
 	try {
 		await navigator.clipboard.writeText(text);
-
-		// Update button state
-		const originalHTML = copyBtn.innerHTML;
-		copyBtn.innerHTML = `
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            <span>Copied!</span>
-        `;
-		copyBtn.classList.add('copied');
-
-		// Reset button after 2 seconds
-		setTimeout(() => {
-			copyBtn.innerHTML = originalHTML;
-			copyBtn.classList.remove('copied');
-		}, 2000);
+		showCopyFeedback();
 	} catch (err) {
-		console.error('Failed to copy text:', err);
-		alert('Failed to copy to clipboard');
+		if (silent) {
+			console.warn('Auto-copy after paste failed:', err);
+		} else {
+			console.error('Failed to copy text:', err);
+			alert('Failed to copy to clipboard');
+		}
 	}
 }
 
@@ -271,8 +274,11 @@ document.addEventListener('DOMContentLoaded', () => {
 	inputText.focus();
 });
 
-// Handle paste event for better UX
+// Handle paste event: wait for DOM update, convert, then auto-copy inside the paste handler
+// so browsers treat the clipboard write as user-initiated and grant permission without prompts
 inputText.addEventListener('paste', () => {
-	// Use setTimeout to ensure the paste content is available
-	setTimeout(handleInput, 0);
+	setTimeout(async () => {
+		handleInput();
+		await copyToClipboard(true);
+	}, 0);
 });
